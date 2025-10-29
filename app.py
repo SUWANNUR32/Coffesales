@@ -4,85 +4,67 @@ import numpy as np
 import joblib
 import matplotlib.pyplot as plt
 
-# --- Konfigurasi Halaman ---
-st.set_page_config(page_title="☕ Coffee Sales Prediction", layout="centered")
+st.set_page_config(page_title="☕ Coffee Sales Prediction", layout="wide")
 
-# --- Header ---
-st.title("☕ Prediksi Penjualan Coffee Shop")
-st.markdown("""
-Aplikasi ini memprediksi **nilai penjualan (Money $)** berdasarkan:
-- ⏱️ Jam pembelian
-- 📅 Hari dalam minggu
-- 🗓️ Bulan dalam tahun
-""")
+st.title("📊 Coffee Shop Sales Predictor ☕")
+st.write("Prediksi nilai penjualan berdasarkan jam, hari, dan bulan transaksi.")
 
-st.divider()
+st.markdown("---")
 
-# --- Upload Dataset (Opsional) ---
-st.subheader("📂 Upload Dataset (Opsional)")
-uploaded_file = st.file_uploader("Unggah file dataset (.csv):", type="csv")
+# Load model & scaler
+try:
+    model = joblib.load("rf_model.joblib")
+    scaler = joblib.load("scaler_coffee.joblib")
+    st.success("✅ Model & Scaler berhasil dimuat!")
+except:
+    st.error("❌ Gagal memuat model/scaler. Pastikan nama file benar dan ada di folder.")
+    st.stop()
 
-if uploaded_file is not None:
-    df = pd.read_csv(uploaded_file)
-    st.write("📋 **5 Data Teratas:**")
-    st.dataframe(df.head())
-
-    if "money" in df.columns:
-        st.subheader("📊 Distribusi Money")
-        fig, ax = plt.subplots()
-        df["money"].plot(kind='hist', bins=20, ax=ax)
-        st.pyplot(fig)
-else:
-    st.info("Belum ada dataset — kamu tetap bisa prediksi di bawah 👇")
-
-st.divider()
-
-# --- Input untuk Prediksi ---
-st.header("🧾 Input Data untuk Prediksi Penjualan")
+# Input User
+st.header("🧾 Masukkan Data Untuk Prediksi")
 
 col1, col2, col3 = st.columns(3)
 with col1:
-    hour = st.number_input("Hour of Day (0–23):", min_value=0, max_value=23, value=10)
+    hour = st.number_input("Hour of Day (0–23):", 0, 23, 10)
 with col2:
-    weekday = st.number_input("Weekday Sort (1–7):", min_value=1, max_value=7, value=3)
+    weekday = st.number_input("Weekday Sort (1–7):", 1, 7, 3)
 with col3:
-    month = st.number_input("Month Sort (1–12):", min_value=1, max_value=12, value=5)
+    month = st.number_input("Month Sort (1–12):", 1, 12, 5)
 
-# --- Prediksi ---
-if st.button("🔮 Prediksi Penjualan!"):
+if st.button("🔮 Prediksi Sekarang!"):
     try:
-        # Load model & scaler
-        model = joblib.load("rf_model.joblib")
-        scaler = joblib.load("scaler_coffee.joblib")
-
-        # Format ke DataFrame
         new_data = pd.DataFrame([{
             "hour_of_day": hour,
             "Weekdaysort": weekday,
             "Monthsort": month
         }])
 
-        # Scaling fitur numerik
-        scaled = scaler.transform(new_data)
+        st.write("📌 Data Input:")
+        st.dataframe(new_data)
 
-        # Prediksi Penjualan
-        prediction = model.predict(scaled)[0]
+        # Scaling ✔ FIXED ✔
+        scaled = scaler.transform(new_data)
+        scaled_df = pd.DataFrame(scaled, columns=new_data.columns)
+
+        prediction = model.predict(scaled_df)[0]
 
         st.success(f"💰 Prediksi Penjualan: **${prediction:,.2f}**")
 
-        # Visualisasikan hasil
-        fig2, ax2 = plt.subplots(figsize=(5, 3))
-        ax2.bar(["Prediksi Penjualan"], [prediction])
-        ax2.set_ylabel("Money ($)")
-        ax2.set_title("Hasil Prediksi Penjualan")
+        # Visualisasi
+        fig, ax = plt.subplots(figsize=(4, 3))
+        ax.bar(["Prediksi Money ($)"], [prediction])
+        st.pyplot(fig)
+
+        # Feature Importance
+        st.subheader("📌 Feature Importance")
+        importance = model.feature_importances_
+        fig2, ax2 = plt.subplots()
+        ax2.bar(new_data.columns, importance, color="orange")
+        ax2.set_title("Pengaruh Fitur terhadap Penjualan")
         st.pyplot(fig2)
 
-    except FileNotFoundError:
-        st.error("⚠️ Pastikan file 'rf_model.joblib' & 'scaler_coffee.joblib' tersedia di folder!")
-
     except Exception as e:
-        st.error(f"Terjadi kesalahan: {e}")
+        st.error(f"⚠️ Error: {e}")
 
-# --- Footer ---
 st.markdown("---")
-st.caption("Dibuat oleh: **Suwannur32** | Coffee Sales Prediction ☕ | Powered by Streamlit & scikit-learn")
+st.caption("Dibuat oleh: **Suwannur32** | Coffee Sales Prediction ☕")
