@@ -1,63 +1,97 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
 import joblib
+import numpy as np
 import matplotlib.pyplot as plt
 
-# --- Page Config ---
-st.set_page_config(page_title="☕ Coffee Sales Prediction", layout="centered")
+# --- Konfigurasi Halaman ---
+st.set_page_config(page_title="Coffee Sales Prediction", layout="centered")
 
-st.title("📊 Prediksi Penjualan Coffee Shop ☕")
-st.write("Masukkan data penjualan untuk memprediksi nilai 'money' ($).")
+# --- Header Aplikasi ---
+st.title("☕ Prediksi Penjualan Kopi")
+st.markdown("""
+Aplikasi ini memprediksi nilai penjualan (**money**) berdasarkan waktu penjualan:
+- 🕒 **Jam transaksi**
+- 📅 **Urutan hari**
+- 📆 **Urutan bulan**
 
-st.divider()
+Gunakan aplikasi ini untuk memantau dan memprediksi performa penjualan kopi berdasarkan waktu tertentu.
+""")
 
-# Load model and scaler
-try:
-    model = joblib.load("rf_model.joblib")
-    scaler = joblib.load("scaler_coffee.joblib")
-    st.success("✅ Model & Scaler berhasil dimuat!")
-except Exception as e:
-    st.error(f"❌ Tidak dapat memuat model: {e}")
-    st.stop()
+# --- Input Data ---
+st.header("📥 Masukkan Data Waktu Penjualan")
+hour = st.number_input("Jam transaksi (0–23):", min_value=0, max_value=23, value=10)
+weekday_sort = st.number_input("Urutan hari (1–7):", min_value=1, max_value=7, value=3)
+month_sort = st.number_input("Urutan bulan (1–12):", min_value=1, max_value=12, value=5)
 
-# INPUT FORM
-st.header("📥 Input Prediksi")
-
-col1, col2, col3 = st.columns(3)
-with col1:
-    hour = st.number_input("Hour of Day (0-23)", min_value=0, max_value=23, value=10)
-with col2:
-    weekday = st.number_input("Weekday Sort (1-7)", min_value=1, max_value=7, value=3)
-with col3:
-    month = st.number_input("Month Sort (1-12)", min_value=1, max_value=12, value=5)
-
-if st.button("🔮 Prediksi Sekarang!"):
+# --- Prediksi ---
+if st.button("🔮 Prediksi Penjualan"):
     try:
-        # Format input
-        new_data = pd.DataFrame([{
-            "hour_of_day": hour,
-            "Weekdaysort": weekday,
-            "Monthsort": month
-        }])
+        # Load model & scaler
+        model = joblib.load("model_rf_coffee.joblib")
+        scaler = joblib.load("scaler_coffee.joblib")
 
-        # Standardize
+        # Buat DataFrame input baru
+        new_data = pd.DataFrame({
+            "hour_of_day": [hour],
+            "Weekdaysort": [weekday_sort],
+            "Monthsort": [month_sort]
+        })
+
+        # Transformasi data & prediksi
         scaled = scaler.transform(new_data)
-        scaled_df = pd.DataFrame(scaled, columns=new_data.columns)
+        pred = model.predict(scaled)[0]
 
-        # Predict
-        prediction = model.predict(scaled_df)[0]
+        # --- Hasil Prediksi Utama ---
+        st.success(f"💰 **Prediksi Penjualan (money): ${pred:,.2f}**")
 
-        st.success(f"💰 Hasil Prediksi Penjualan: **${prediction:,.2f}**")
-
-        # Visualization
-        fig, ax = plt.subplots(figsize=(4, 3))
-        ax.bar(["Prediksi Penjualan"], [prediction], color="orange")
-        ax.set_ylabel("Money ($)")
+        # --- Visualisasi Prediksi Tunggal ---
+        st.subheader("📊 Grafik Hasil Prediksi")
+        fig, ax = plt.subplots(figsize=(5, 3))
+        ax.bar(["Prediksi"], [pred], color="skyblue")
+        ax.set_ylabel("Nilai Penjualan (Money)")
+        ax.set_title("Prediksi Penjualan Tunggal")
         st.pyplot(fig)
 
+        # --- Simulasi Tren per Jam (0–23) ---
+        st.subheader("📈 Simulasi Tren Penjualan Berdasarkan Jam")
+        hours = np.arange(0, 24)
+        sim_data = pd.DataFrame({
+            "hour_of_day": hours,
+            "Weekdaysort": [weekday_sort]*24,
+            "Monthsort": [month_sort]*24
+        })
+        sim_scaled = scaler.transform(sim_data)
+        sim_preds = model.predict(sim_scaled)
+
+        # Gabungkan hasil prediksi ke DataFrame
+        hasil_simulasi = pd.DataFrame({
+            "Jam": hours,
+            "Prediksi_Penjualan": sim_preds
+        })
+
+        # --- Tampilkan Data Hasil Prediksi ---
+        st.write("📋 **Tabel Hasil Prediksi per Jam:**")
+        st.dataframe(hasil_simulasi.style.format({"Prediksi_Penjualan": "{:,.2f}"}))
+
+        # --- Grafik Tren Prediksi per Jam ---
+        fig2, ax2 = plt.subplots(figsize=(8, 4))
+        ax2.plot(hours, sim_preds, marker='o', color='orange', linewidth=2)
+        ax2.set_xlabel("Jam Transaksi")
+        ax2.set_ylabel("Prediksi Penjualan (Money)")
+        ax2.set_title("Simulasi Tren Penjualan per Jam")
+        st.pyplot(fig2)
+
+        # --- Statistik Ringkas ---
+        st.subheader("📈 Statistik Ringkas Prediksi Harian")
+        st.write(f"• Rata-rata Penjualan per Jam: **${np.mean(sim_preds):,.2f}**")
+        st.write(f"• Penjualan Tertinggi: **${np.max(sim_preds):,.2f}** (Jam ke-{np.argmax(sim_preds)})")
+        st.write(f"• Penjualan Terendah: **${np.min(sim_preds):,.2f}** (Jam ke-{np.argmin(sim_preds)})")
+
+    except FileNotFoundError:
+        st.error("⚠️ File model atau scaler tidak ditemukan. Pastikan 'model_rf_coffee.joblib' dan 'scaler_coffee.joblib' ada di folder repo.")
     except Exception as e:
-        st.error(f"⚠️ Terjadi kesalahan: {e}")
+        st.error(f"Terjadi kesalahan: {e}")
 
 st.markdown("---")
-st.caption("✨ Dibuat oleh Suwannur32 | Powered by Streamlit & scikit-learn")
+st.caption("Dibuat oleh: **Suwannur32** | Project: Coffee Sales Prediction ☕")
