@@ -1,97 +1,135 @@
+# coffe_sales_app_streamlit.py
 import streamlit as st
 import pandas as pd
-import joblib
 import numpy as np
-import matplotlib.pyplot as plt
+import joblib
+from datetime import datetime
+import plotly.express as px
+import plotly.graph_objects as go
 
-# --- Konfigurasi Halaman ---
-st.set_page_config(page_title="Coffee Sales Prediction", layout="centered")
+# ================================================================
+# 🔧 LOAD MODEL & SCALER
+# ================================================================
+model = joblib.load("rf_model.joblib")
+scaler = joblib.load("scaler_coffee.joblib")
 
-# --- Header Aplikasi ---
-st.title("☕ Prediksi Penjualan Kopi")
+# ================================================================
+# 🎨 CONFIGURASI HALAMAN
+# ================================================================
+st.set_page_config(
+    page_title="☕ Coffee Sales Predictor Dashboard",
+    layout="wide",
+    page_icon="☕"
+)
+
+# ================================================================
+# 🧭 SIDEBAR
+# ================================================================
+st.sidebar.header("📊 Input Data Prediksi")
+st.sidebar.write("Masukkan parameter berikut untuk memprediksi pendapatan penjualan kopi:")
+
+hour = st.sidebar.slider("⏰ Jam Penjualan", 0, 23, 10)
+weekday = st.sidebar.selectbox("📅 Hari ke-", [1, 2, 3, 4, 5, 6, 7], help="1 = Senin, 7 = Minggu")
+month = st.sidebar.selectbox("🗓️ Bulan ke-", list(range(1, 13)), help="1 = Januari, 12 = Desember")
+
+st.sidebar.markdown("---")
+st.sidebar.info("Pastikan data input sesuai dengan pola penjualan historis agar prediksi lebih akurat.")
+
+# ================================================================
+# 🧠 PREDIKSI
+# ================================================================
+input_df = pd.DataFrame({
+    "hour_of_day": [hour],
+    "Weekdaysort": [weekday],
+    "Monthsort": [month]
+})
+
+scaled_input = scaler.transform(input_df)
+prediksi_money = model.predict(scaled_input)[0]
+
+# ================================================================
+# 📈 HALAMAN UTAMA
+# ================================================================
+st.title("☕ Coffee Sales Prediction Dashboard")
 st.markdown("""
-Aplikasi ini memprediksi nilai penjualan (**money**) berdasarkan waktu penjualan:
-- 🕒 **Jam transaksi**
-- 📅 **Urutan hari**
-- 📆 **Urutan bulan**
-
-Gunakan aplikasi ini untuk memantau dan memprediksi performa penjualan kopi berdasarkan waktu tertentu.
+Dashboard ini memanfaatkan **Random Forest Regressor** untuk memprediksi pendapatan penjualan kopi
+berdasarkan **jam, hari, dan bulan** transaksi.  
+Gunakan panel di kiri untuk mengubah parameter input.
 """)
 
-# --- Input Data ---
-st.header("📥 Masukkan Data Waktu Penjualan")
-hour = st.number_input("Jam transaksi (0–23):", min_value=0, max_value=23, value=10)
-weekday_sort = st.number_input("Urutan hari (1–7):", min_value=1, max_value=7, value=3)
-month_sort = st.number_input("Urutan bulan (1–12):", min_value=1, max_value=12, value=5)
+# ================================================================
+# 💰 HASIL PREDIKSI
+# ================================================================
+st.subheader("💵 Hasil Prediksi Pendapatan")
 
-# --- Prediksi ---
-if st.button("🔮 Prediksi Penjualan"):
-    try:
-        # Load model & scaler
-        model = joblib.load("rf_model.joblib")
-        scaler = joblib.load("scaler_coffee.joblib")
+col1, col2 = st.columns([2, 3])
 
-        # Buat DataFrame input baru
-        new_data = pd.DataFrame({
-            "hour_of_day": [hour],
-            "Weekdaysort": [weekday_sort],
-            "Monthsort": [month_sort]
-        })
+with col1:
+    st.metric(
+        label="Estimasi Penjualan (Money)",
+        value=f"${prediksi_money:,.2f}",
+        delta=None,
+        help="Nilai ini adalah hasil prediksi pendapatan berdasarkan input Anda."
+    )
 
-        # Transformasi data & prediksi
-        scaled = scaler.transform(new_data)
-        pred = model.predict(scaled)[0]
+with col2:
+    # Gauge Chart
+    fig = go.Figure(go.Indicator(
+        mode="gauge+number",
+        value=prediksi_money,
+        title={'text': "Prediksi Penjualan"},
+        gauge={'axis': {'range': [0, max(1000, prediksi_money * 1.5)]},
+               'bar': {'color': "mediumseagreen"},
+               'steps': [
+                   {'range': [0, prediksi_money/2], 'color': "lightgray"},
+                   {'range': [prediksi_money/2, prediksi_money], 'color': "lightgreen"}]
+              }
+    ))
+    st.plotly_chart(fig, use_container_width=True)
 
-        # --- Hasil Prediksi Utama ---
-        st.success(f"💰 **Prediksi Penjualan (money): ${pred:,.2f}**")
+# ================================================================
+# 🔍 INTERPRETASI
+# ================================================================
+st.markdown("### 📘 Interpretasi Hasil")
+st.write(f"""
+Berdasarkan input:
+- Jam ke **{hour}**
+- Hari ke **{weekday}**
+- Bulan ke **{month}**
 
-        # --- Visualisasi Prediksi Tunggal ---
-        st.subheader("📊 Grafik Hasil Prediksi")
-        fig, ax = plt.subplots(figsize=(5, 3))
-        ax.bar(["Prediksi"], [pred], color="skyblue")
-        ax.set_ylabel("Nilai Penjualan (Money)")
-        ax.set_title("Prediksi Penjualan Tunggal")
-        st.pyplot(fig)
+Model memperkirakan total pendapatan penjualan sekitar **${prediksi_money:,.2f}**.
+""")
 
-        # --- Simulasi Tren per Jam (0–23) ---
-        st.subheader("📈 Simulasi Tren Penjualan Berdasarkan Jam")
-        hours = np.arange(0, 24)
-        sim_data = pd.DataFrame({
-            "hour_of_day": hours,
-            "Weekdaysort": [weekday_sort]*24,
-            "Monthsort": [month_sort]*24
-        })
-        sim_scaled = scaler.transform(sim_data)
-        sim_preds = model.predict(sim_scaled)
+st.info("""
+💡 **Tips Interpretasi:**
+- Penjualan di jam sibuk (pagi dan sore) cenderung lebih tinggi.  
+- Hari kerja biasanya memiliki pola berbeda dibanding akhir pekan.  
+- Bulan-bulan liburan (Des–Jan) bisa memunculkan anomali positif.
+""")
 
-        # Gabungkan hasil prediksi ke DataFrame
-        hasil_simulasi = pd.DataFrame({
-            "Jam": hours,
-            "Prediksi_Penjualan": sim_preds
-        })
+# ================================================================
+# 📊 SIMULASI VISUAL (OPSIONAL)
+# ================================================================
+st.markdown("### 📉 Simulasi Perubahan Jam Penjualan")
+jam_range = np.arange(0, 24)
+simulasi_df = pd.DataFrame({
+    "hour_of_day": jam_range,
+    "Weekdaysort": weekday,
+    "Monthsort": month
+})
 
-        # --- Tampilkan Data Hasil Prediksi ---
-        st.write("📋 **Tabel Hasil Prediksi per Jam:**")
-        st.dataframe(hasil_simulasi.style.format({"Prediksi_Penjualan": "{:,.2f}"}))
+simulasi_scaled = scaler.transform(simulasi_df)
+simulasi_df["Prediksi"] = model.predict(simulasi_scaled)
 
-        # --- Grafik Tren Prediksi per Jam ---
-        fig2, ax2 = plt.subplots(figsize=(8, 4))
-        ax2.plot(hours, sim_preds, marker='o', color='orange', linewidth=2)
-        ax2.set_xlabel("Jam Transaksi")
-        ax2.set_ylabel("Prediksi Penjualan (Money)")
-        ax2.set_title("Simulasi Tren Penjualan per Jam")
-        st.pyplot(fig2)
+fig_sim = px.line(
+    simulasi_df, x="hour_of_day", y="Prediksi",
+    title="Perkiraan Pendapatan Berdasarkan Jam Penjualan",
+    labels={"hour_of_day": "Jam", "Prediksi": "Pendapatan ($)"}
+)
+st.plotly_chart(fig_sim, use_container_width=True)
 
-        # --- Statistik Ringkas ---
-        st.subheader("📈 Statistik Ringkas Prediksi Harian")
-        st.write(f"• Rata-rata Penjualan per Jam: **${np.mean(sim_preds):,.2f}**")
-        st.write(f"• Penjualan Tertinggi: **${np.max(sim_preds):,.2f}** (Jam ke-{np.argmax(sim_preds)})")
-        st.write(f"• Penjualan Terendah: **${np.min(sim_preds):,.2f}** (Jam ke-{np.argmin(sim_preds)})")
-
-    except FileNotFoundError:
-        st.error("⚠️ File model atau scaler tidak ditemukan. Pastikan 'model_rf_coffee.joblib' dan 'scaler_coffee.joblib' ada di folder repo.")
-    except Exception as e:
-        st.error(f"Terjadi kesalahan: {e}")
-
+# ================================================================
+# ⚙️ FOOTER
+# ================================================================
 st.markdown("---")
-st.caption("Dibuat oleh: **Suwannur32** | Project: Coffee Sales Prediction ☕")
+st.caption("Dibuat dengan ❤️ menggunakan Streamlit + Random Forest | @2025 Coffee Analytics Team")
