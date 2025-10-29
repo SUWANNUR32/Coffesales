@@ -7,7 +7,6 @@ from matplotlib.ticker import FuncFormatter
 
 # --- Konfigurasi Halaman ---
 st.set_page_config(page_title="Coffee Sales Prediction", layout="centered")
-
 # --- Header Aplikasi ---
 st.title("☕ Prediksi Penjualan Kopi")
 st.markdown("""
