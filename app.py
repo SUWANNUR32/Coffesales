@@ -28,7 +28,7 @@ month_sort = st.number_input("Urutan bulan (1–12):", min_value=1, max_value=12
 if st.button("🔮 Prediksi Penjualan"):
     try:
         # Load model & scaler
-        model = joblib.load("model_rf_coffee.joblib")
+        model = joblib.load("rf_model.joblib")
         scaler = joblib.load("scaler_coffee.joblib")
 
         # Buat DataFrame input baru
