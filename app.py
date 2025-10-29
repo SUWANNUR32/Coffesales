@@ -33,7 +33,7 @@ if st.button("Prediksi Penjualan"):
         st.success(f"💰 Prediksi Penjualan: **${prediction:,.2f}**")
 
     except FileNotFoundError:
-        st.error("⚠️ File 'coffee_model_bundle.joblib' tidak ditemukan.")
+        st.error("⚠️ File 'rf_model.joblib' tidak ditemukan.")
     except Exception as e:
         st.error(f"Terjadi kesalahan: {e}")
 
