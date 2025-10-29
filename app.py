@@ -4,67 +4,60 @@ import numpy as np
 import joblib
 import matplotlib.pyplot as plt
 
-st.set_page_config(page_title="☕ Coffee Sales Prediction", layout="wide")
+# --- Page Config ---
+st.set_page_config(page_title="☕ Coffee Sales Prediction", layout="centered")
 
-st.title("📊 Coffee Shop Sales Predictor ☕")
-st.write("Prediksi nilai penjualan berdasarkan jam, hari, dan bulan transaksi.")
+st.title("📊 Prediksi Penjualan Coffee Shop ☕")
+st.write("Masukkan data penjualan untuk memprediksi nilai 'money' ($).")
 
-st.markdown("---")
+st.divider()
 
-# Load model & scaler
+# Load model and scaler
 try:
     model = joblib.load("rf_model.joblib")
     scaler = joblib.load("scaler_coffee.joblib")
     st.success("✅ Model & Scaler berhasil dimuat!")
-except:
-    st.error("❌ Gagal memuat model/scaler. Pastikan nama file benar dan ada di folder.")
+except Exception as e:
+    st.error(f"❌ Tidak dapat memuat model: {e}")
     st.stop()
 
-# Input User
-st.header("🧾 Masukkan Data Untuk Prediksi")
+# INPUT FORM
+st.header("📥 Input Prediksi")
 
 col1, col2, col3 = st.columns(3)
 with col1:
-    hour = st.number_input("Hour of Day (0–23):", 0, 23, 10)
+    hour = st.number_input("Hour of Day (0-23)", min_value=0, max_value=23, value=10)
 with col2:
-    weekday = st.number_input("Weekday Sort (1–7):", 1, 7, 3)
+    weekday = st.number_input("Weekday Sort (1-7)", min_value=1, max_value=7, value=3)
 with col3:
-    month = st.number_input("Month Sort (1–12):", 1, 12, 5)
+    month = st.number_input("Month Sort (1-12)", min_value=1, max_value=12, value=5)
 
 if st.button("🔮 Prediksi Sekarang!"):
     try:
+        # Format input
         new_data = pd.DataFrame([{
             "hour_of_day": hour,
             "Weekdaysort": weekday,
             "Monthsort": month
         }])
 
-        st.write("📌 Data Input:")
-        st.dataframe(new_data)
-
-        # Scaling ✔ FIXED ✔
+        # Standardize
         scaled = scaler.transform(new_data)
         scaled_df = pd.DataFrame(scaled, columns=new_data.columns)
 
+        # Predict
         prediction = model.predict(scaled_df)[0]
 
-        st.success(f"💰 Prediksi Penjualan: **${prediction:,.2f}**")
+        st.success(f"💰 Hasil Prediksi Penjualan: **${prediction:,.2f}**")
 
-        # Visualisasi
+        # Visualization
         fig, ax = plt.subplots(figsize=(4, 3))
-        ax.bar(["Prediksi Money ($)"], [prediction])
+        ax.bar(["Prediksi Penjualan"], [prediction], color="orange")
+        ax.set_ylabel("Money ($)")
         st.pyplot(fig)
 
-        # Feature Importance
-        st.subheader("📌 Feature Importance")
-        importance = model.feature_importances_
-        fig2, ax2 = plt.subplots()
-        ax2.bar(new_data.columns, importance, color="orange")
-        ax2.set_title("Pengaruh Fitur terhadap Penjualan")
-        st.pyplot(fig2)
-
     except Exception as e:
-        st.error(f"⚠️ Error: {e}")
+        st.error(f"⚠️ Terjadi kesalahan: {e}")
 
 st.markdown("---")
-st.caption("Dibuat oleh: **Suwannur32** | Coffee Sales Prediction ☕")
+st.caption("✨ Dibuat oleh Suwannur32 | Powered by Streamlit & scikit-learn")
